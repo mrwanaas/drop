@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DropZone — Free File Sharing</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --border: #222222;
+    --accent: #00ff88;
+    --accent-dim: #00ff8830;
+    --text: #e8e8e8;
+    --muted: #555;
+    --danger: #ff4444;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 80px;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 50px;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  .logo {
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    font-weight: 800;
+    letter-spacing: -2px;
+    color: var(--text);
+  }
+
+  .logo span { color: var(--accent); }
+
+  .tagline {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin-top: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 620px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    animation: fadeUp 0.6s ease 0.1s both;
+  }
+
+  /* Drop Zone */
+  #drop-zone {
+    padding: 60px 40px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    position: relative;
+  }
+
+  #drop-zone:hover,
+  #drop-zone.drag-over {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+  }
+
+  #drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .drop-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    display: block;
+    transition: transform 0.3s;
+  }
+
+  #drop-zone:hover .drop-icon {
+    transform: translateY(-4px);
+  }
+
+  .drop-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .drop-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  /* File info */
+  #file-info {
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--border);
+    display: none;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .file-icon {
+    font-size: 1.6rem;
+  }
+
+  .file-meta { flex: 1; min-width: 0; }
+
+  .file-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .file-size {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  #remove-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 4px;
+    transition: color 0.2s;
+  }
+  #remove-btn:hover { color: var(--danger); }
+
+  /* Upload button */
+  .btn-row {
+    padding: 24px 28px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #upload-btn {
+    width: 100%;
+    padding: 16px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: opacity 0.2s, transform 0.15s;
+  }
+
+  #upload-btn:hover:not(:disabled) {
+    opacity: 0.85;
+    transform: translateY(-1px);
+  }
+
+  #upload-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* Progress */
+  #progress-area {
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--border);
+    display: none;
+  }
+
+  .progress-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .progress-bar-bg {
+    height: 4px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.3s ease;
+    border-radius: 4px;
+  }
+
+  /* Result */
+  #result-area {
+    padding: 24px 28px;
+    display: none;
+  }
+
+  .result-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .link-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  #result-link {
+    flex: 1;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #copy-btn {
+    padding: 12px 18px;
+    background: none;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    white-space: nowrap;
+  }
+
+  #copy-btn:hover {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .success-note {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 10px;
+  }
+
+  /* Error */
+  #error-area {
+    padding: 16px 28px;
+    display: none;
+    background: #1a0000;
+    border-top: 1px solid #330000;
+  }
+
+  .error-msg {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--danger);
+  }
+
+  /* Recent uploads */
+  #history-card {
+    width: 100%;
+    max-width: 620px;
+    margin-top: 24px;
+    animation: fadeUp 0.6s ease 0.2s both;
+  }
+
+  .history-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .history-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .history-item .h-name {
+    flex: 1;
+    font-size: 0.85rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .history-item .h-link {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .history-item .h-link:hover { text-decoration: underline; }
+
+  .history-item .h-del {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0;
+    transition: color 0.2s;
+  }
+  .history-item .h-del:hover { color: var(--danger); }
+
+  footer {
+    margin-top: 50px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-align: center;
+    animation: fadeUp 0.6s ease 0.3s both;
+  }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Drop<span>Zone</span></div>
+  <div class="tagline">// free · instant · shareable</div>
+</header>
+
+<div class="card">
+
+  <!-- Drop Zone -->
+  <div id="drop-zone">
+    <input type="file" id="file-input" />
+    <span class="drop-icon">📂</span>
+    <div class="drop-title">Drop your file here</div>
+    <div class="drop-sub">or click to browse · any file type</div>
+  </div>
+
+  <!-- File Info -->
+  <div id="file-info">
+    <span class="file-icon" id="file-emoji">📄</span>
+    <div class="file-meta">
+      <div class="file-name" id="file-name-display">—</div>
+      <div class="file-size" id="file-size-display">—</div>
+    </div>
+    <button id="remove-btn" title="Remove">✕</button>
+  </div>
+
+  <!-- Upload Button -->
+  <div class="btn-row">
+    <button id="upload-btn" disabled>Upload &amp; Get Link</button>
+  </div>
+
+  <!-- Progress -->
+  <div id="progress-area">
+    <div class="progress-label">
+      <span id="progress-status">Uploading…</span>
+      <span id="progress-pct">0%</span>
+    </div>
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="progress-fill"></div>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div id="result-area">
+    <div class="result-label">✔ Your download link</div>
+    <div class="link-row">
+      <input id="result-link" type="text" readonly />
+      <button id="copy-btn">Copy</button>
+    </div>
+    <div class="success-note">⚠ Files may expire after 10 days of no downloads.</div>
+  </div>
+
+  <!-- Error -->
+  <div id="error-area">
+    <div class="error-msg" id="error-msg">Something went wrong.</div>
+  </div>
+
+</div>
+
+<!-- History -->
+<div id="history-card" style="display:none">
+  <div class="history-title">Recent uploads</div>
+  <div class="history-list" id="history-list"></div>
+</div>
+
+<footer>Powered by gofile.io · Files stored securely · No account needed</footer>
+
+<script>
+  const dropZone    = document.getElementById('drop-zone');
+  const fileInput   = document.getElementById('file-input');
+  const fileInfo    = document.getElementById('file-info');
+  const fileEmoji   = document.getElementById('file-emoji');
+  const fileNameEl  = document.getElementById('file-name-display');
+  const fileSizeEl  = document.getElementById('file-size-display');
+  const removeBtn   = document.getElementById('remove-btn');
+  const uploadBtn   = document.getElementById('upload-btn');
+  const progressArea= document.getElementById('progress-area');
+  const progressFill= document.getElementById('progress-fill');
+  const progressPct = document.getElementById('progress-pct');
+  const progressSt  = document.getElementById('progress-status');
+  const resultArea  = document.getElementById('result-area');
+  const resultLink  = document.getElementById('result-link');
+  const copyBtn     = document.getElementById('copy-btn');
+  const errorArea   = document.getElementById('error-area');
+  const errorMsg    = document.getElementById('error-msg');
+  const historyCard = document.getElementById('history-card');
+  const historyList = document.getElementById('history-list');
+
+  let selectedFile = null;
+
+  // ---- File Emoji by type ----
+  function fileEmoji(f) {
+    const t = f.type;
+    if (t.startsWith('image/'))  return '🖼️';
+    if (t.startsWith('video/'))  return '🎬';
+    if (t.startsWith('audio/'))  return '🎵';
+    if (t.includes('pdf'))       return '📕';
+    if (t.includes('zip') || t.includes('rar') || t.includes('tar') || t.includes('gz')) return '📦';
+    if (t.includes('word') || f.name.endsWith('.docx')) return '📝';
+    if (t.includes('sheet') || f.name.endsWith('.xlsx')) return '📊';
+    if (t.startsWith('text/'))   return '📄';
+    return '📁';
+  }
+
+  function formatBytes(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+    if (b < 1024*1024*1024) return (b/1024/1024).toFixed(1) + ' MB';
+    return (b/1024/1024/1024).toFixed(2) + ' GB';
+  }
+
+  function setFile(f) {
+    selectedFile = f;
+    fileEmoji.textContent = fileEmoji(f);
+    fileNameEl.textContent = f.name;
+    fileSizeEl.textContent = formatBytes(f.size);
+    fileInfo.style.display = 'flex';
+    uploadBtn.disabled = false;
+    hideResult(); hideError();
+  }
+
+  function clearFile() {
+    selectedFile = null;
+    fileInput.value = '';
+    fileInfo.style.display = 'none';
+    uploadBtn.disabled = true;
+    hideResult(); hideError();
+  }
+
+  function hideResult() {
+    resultArea.style.display = 'none';
+  }
+
+  function hideError() {
+    errorArea.style.display = 'none';
+  }
+
+  function showError(msg) {
+    errorArea.style.display = 'block';
+    errorMsg.textContent = msg;
+    progressArea.style.display = 'none';
+  }
+
+  // ---- Drag & Drop ----
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) setFile(f);
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) setFile(fileInput.files[0]);
+  });
+
+  removeBtn.addEventListener('click', clearFile);
+
+  // ---- Upload ----
+  uploadBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+    uploadBtn.disabled = true;
+    hideError();
+    hideResult();
+    progressArea.style.display = 'block';
+    progressFill.style.width = '0%';
+    progressPct.textContent = '0%';
+    progressSt.textContent = 'Getting server…';
+
+    try {
+      // 1. Get best server
+      const srvRes = await fetch('https://api.gofile.io/servers');
+      if (!srvRes.ok) throw new Error('Could not reach upload server.');
+      const srvData = await srvRes.json();
+      if (srvData.status !== 'ok') throw new Error('Server error: ' + srvData.status);
+      const server = srvData.data.servers[0].name;
+
+      progressSt.textContent = 'Uploading…';
+
+      // 2. Upload file with XHR for progress
+      const link = await new Promise((resolve, reject) => {
+        const fd = new FormData();
+        fd.append('file', selectedFile);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `https://${server}.gofile.io/contents/uploadfile`);
+
+        xhr.upload.onprogress = e => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            progressFill.style.width = pct + '%';
+            progressPct.textContent = pct + '%';
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            const d = JSON.parse(xhr.responseText);
+            if (d.status === 'ok') {
+              resolve(d.data.downloadPage);
+            } else {
+              reject(new Error('Upload failed: ' + d.status));
+            }
+          } else {
+            reject(new Error('HTTP error: ' + xhr.status));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error('Network error. Check your connection.'));
+        xhr.send(fd);
+      });
+
+      // 3. Show result
+      progressArea.style.display = 'none';
+      resultArea.style.display = 'block';
+      resultLink.value = link;
+
+      // Save to local history
+      saveHistory(selectedFile.name, link);
+      renderHistory();
+
+    } catch (err) {
+      showError('❌ ' + (err.message || 'Unknown error occurred.'));
+    }
+
+    uploadBtn.disabled = false;
+  });
+
+  // ---- Copy ----
+  copyBtn.addEventListener('click', () => {
+    resultLink.select();
+    navigator.clipboard.writeText(resultLink.value).catch(() => document.execCommand('copy'));
+    copyBtn.textContent = 'Copied!';
+    setTimeout(() => copyBtn.textContent = 'Copy', 2000);
+  });
+
+  // ---- History (localStorage) ----
+  function saveHistory(name, link) {
+    let h = getHistory();
+    h.unshift({ name, link, time: Date.now() });
+    h = h.slice(0, 8); // keep last 8
+    localStorage.setItem('dropzone_history', JSON.stringify(h));
+  }
+
+  function getHistory() {
+    try { return JSON.parse(localStorage.getItem('dropzone_history')) || []; }
+    catch { return []; }
+  }
+
+  function renderHistory() {
+    const h = getHistory();
+    if (h.length === 0) { historyCard.style.display = 'none'; return; }
+    historyCard.style.display = 'block';
+    historyList.innerHTML = h.map((item, i) => `
+      <div class="history-item">
+        <div class="h-name" title="${item.name}">${item.name}</div>
+        <a class="h-link" href="${item.link}" target="_blank" rel="noopener">Open ↗</a>
+        <button class="h-del" data-i="${i}" title="Remove">✕</button>
+      </div>
+    `).join('');
+
+    historyList.querySelectorAll('.h-del').forEach(btn => {
+      btn.addEventListener('click', () => {
+        let h2 = getHistory();
+        h2.splice(+btn.dataset.i, 1);
+        localStorage.setItem('dropzone_history', JSON.stringify(h2));
+        renderHistory();
+      });
+    });
+  }
+
+  renderHistory();
+</script>
+</body>
+</html>
